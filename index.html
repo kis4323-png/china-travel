@@ -1590,16 +1590,39 @@ function openShow(kind, text, label, sub){
 /* =====================================================================
    음성 · 복사 · 토스트
    ===================================================================== */
+function gtUrl(text){ return `https://translate.google.com/?sl=zh-CN&tl=ko&text=${encodeURIComponent(text)}&op=translate`; }
+function openSayHelp(text, reason){
+  $("show").hidden = true;
+  openSheet("발음 듣기", `
+    <p class="note">${reason === "none"
+      ? "지금 열린 화면(카카오톡 등 앱 안 브라우저)에서는 음성 기능을 쓸 수 없어요."
+      : "중국어 음성이 나오지 않았어요. 휴대폰에 중국어 음성이 설치되지 않았을 수 있어요."}</p>
+    <div class="box">
+      <p class="cn" style="font-size:20px;font-weight:900">${esc(text)}</p>
+      <a class="btn red" href="${gtUrl(text)}" target="_blank" rel="noopener">구글 번역에서 듣기 (🔊 버튼 누르기)</a>
+    </div>
+    <ol class="steps">
+      <li><b>크롬·삼성인터넷에서 열기</b> — 카카오톡 안이 아니라 브라우저나 홈 화면 아이콘으로 열면 대부분 바로 돼요.</li>
+      <li><b>중국어 음성 설치 (갤럭시)</b> — 설정 검색창에 "TTS" 입력 → 텍스트 음성 변환 → 기본 엔진 옆 ⚙ → 음성 데이터 설치 → <b>중국어</b> 받기</li>
+      <li><b>아이폰</b> — 설정 → 손쉬운 사용 → 읽기 및 말하기 → 음성 → <b>중국어</b> 음성 받기</li>
+      <li><b>무음 모드 확인</b> — 휴대폰 소리(미디어 볼륨)가 켜져 있는지 확인해 주세요.</li>
+    </ol>`);
+}
 function say(text){
-  if (!("speechSynthesis" in window)) { toast("이 기기에서는 음성 기능을 쓸 수 없어요"); return; }
+  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") { openSayHelp(text, "none"); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "zh-CN"; u.rate = 0.85;
-  const v = speechSynthesis.getVoices().find(v => /zh[-_]CN|cmn/i.test(v.lang)) || speechSynthesis.getVoices().find(v => /zh/i.test(v.lang));
+  const voices = speechSynthesis.getVoices();
+  const v = voices.find(v => /zh[-_]CN|cmn/i.test(v.lang)) || voices.find(v => /zh/i.test(v.lang));
   if (v) u.voice = v;
-  u.onerror = () => toast("음성을 재생하지 못했어요");
+  let started = false;
+  u.onstart = () => { started = true; };
+  u.onerror = () => openSayHelp(text, "fail");
   speechSynthesis.speak(u);
   toast("🔊 " + text);
+  if (voices.length && !v) setTimeout(() => openSayHelp(text, "fail"), 600);
+  else setTimeout(() => { if (!started && !speechSynthesis.speaking) openSayHelp(text, "fail"); }, 2500);
 }
 if ("speechSynthesis" in window) speechSynthesis.getVoices();
 
